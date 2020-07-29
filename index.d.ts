@@ -1,5 +1,5 @@
 declare module "react-native-wechat" {
-  export function registerApp(appId: string): Promise<boolean>;
+  export function registerApp(appId: string, universalLink: string): Promise<boolean>;
   export function registerAppWithDescription(
     appId: string,
     desc: string
@@ -58,4 +58,14 @@ declare module "react-native-wechat" {
   export function pay(
     payload: PaymentLoad
   ): Promise<{ errCode?: number; errStr?: string }>;
+  export interface LaunchMiniProgramArgs {
+    userName: string;
+    path?: string;
+    miniProgramType: number;
+    extMsg?: string;
+    extDic?: any;
+  };
+  export function launchMiniProgram(
+    args: LaunchMiniProgramArgs
+  ): Promise<{extMsg?: string}>;
 }

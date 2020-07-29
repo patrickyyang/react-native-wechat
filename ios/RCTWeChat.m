@@ -191,6 +191,26 @@ RCT_EXPORT_METHOD(pay:(NSDictionary *)data
     }];
 }
 
+RCT_EXPORT_METHOD(launchMiniProgram:(NSDictionary *)data
+                  :(RCTResponseSenderBlock)callback)
+{
+    WXLaunchMiniProgramReq *req = [WXLaunchMiniProgramReq object];
+    req.miniProgramType = data[@"miniProgramType"];
+    req.userName = data[@"userName"];
+    if (data[@"path"]) {
+        req.path = data[@"path"];
+    }
+    if (data[@"extMsg"]) {
+        req.extMsg = data[@"extMsg"];
+    }
+    if (data[@"extDic"]) {
+        req.extDic = data[@"extDic"];
+    }
+    [WXApi sendReq:req completion:^(BOOL success) {
+      callback(@[success ? [NSNull null] : INVOKE_FAILED]);
+    }];
+}
+
 - (void)shareToWeixinWithData:(NSDictionary *)aData
                    thumbImage:(UIImage *)aThumbImage
                         scene:(int)aScene
@@ -322,7 +342,6 @@ RCT_EXPORT_METHOD(pay:(NSDictionary *)data
     } else {
         [self shareToWeixinWithData:aData thumbImage:nil scene:aScene callBack:aCallBack];
     }
-
 }
 
 - (void)shareToWeixinWithTextMessage:(int)aScene
@@ -407,14 +426,20 @@ RCT_EXPORT_METHOD(pay:(NSDictionary *)data
           [self sendEventWithName:RCTWXEventName body:body];
 	    }
 	} else if ([resp isKindOfClass:[PayResp class]]) {
-	        PayResp *r = (PayResp *)resp;
-	        NSMutableDictionary *body = @{@"errCode":@(r.errCode)}.mutableCopy;
-	        body[@"errStr"] = r.errStr;
-	        body[@"type"] = @(r.type);
-	        body[@"returnKey"] =r.returnKey;
-	        body[@"type"] = @"PayReq.Resp";
-          [self sendEventWithName:RCTWXEventName body:body];
-    	}
+        PayResp *r = (PayResp *)resp;
+        NSMutableDictionary *body = @{@"errCode":@(r.errCode)}.mutableCopy;
+        body[@"errStr"] = r.errStr;
+        body[@"type"] = @(r.type);
+        body[@"returnKey"] =r.returnKey;
+        body[@"type"] = @"PayReq.Resp";
+        [self sendEventWithName:RCTWXEventName body:body];
+    } else if ([resp isKindOfClass:[WXLaunchMiniProgramResp class]]) {
+        NSString *string = resp.extMsg;
+        NSMutableDictionary *body = @{@"extMsg": resp.extMsg}.mutableCopy
+        body[@"type"] = @"WXLaunchMiniProgramReq.Resp";
+        [self sendEventWithName:RCTWXEventName body:body];
+         // 对应JsApi navigateBackApplication中的extraData字段数据
+    }
 }
 
 @end
