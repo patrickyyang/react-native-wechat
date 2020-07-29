@@ -195,7 +195,7 @@ RCT_EXPORT_METHOD(launchMiniProgram:(NSDictionary *)data
                   :(RCTResponseSenderBlock)callback)
 {
     WXLaunchMiniProgramReq *req = [WXLaunchMiniProgramReq object];
-    req.miniProgramType = data[@"miniProgramType"];
+    req.miniProgramType = [data[@"miniProgramType"] integerValue];
     req.userName = data[@"userName"];
     if (data[@"path"]) {
         req.path = data[@"path"];
@@ -434,8 +434,8 @@ RCT_EXPORT_METHOD(launchMiniProgram:(NSDictionary *)data
         body[@"type"] = @"PayReq.Resp";
         [self sendEventWithName:RCTWXEventName body:body];
     } else if ([resp isKindOfClass:[WXLaunchMiniProgramResp class]]) {
-        NSString *string = resp.extMsg;
-        NSMutableDictionary *body = @{@"extMsg": resp.extMsg}.mutableCopy
+        WXLaunchMiniProgramResp *r = (WXLaunchMiniProgramResp *)resp;
+        NSMutableDictionary *body = @{@"extMsg": r.extMsg}.mutableCopy;
         body[@"type"] = @"WXLaunchMiniProgramReq.Resp";
         [self sendEventWithName:RCTWXEventName body:body];
          // 对应JsApi navigateBackApplication中的extraData字段数据

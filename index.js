@@ -145,6 +145,7 @@ const nativeShareToTimeline = wrapApi(WeChat.shareToTimeline);
 const nativeShareToSession = wrapApi(WeChat.shareToSession);
 const nativeShareToFavorite = wrapApi(WeChat.shareToFavorite);
 const nativeSendAuthRequest = wrapApi(WeChat.sendAuthRequest);
+const nativeLaunchMiniProgram = wrapApi(WeChat.launchMiniProgram);
 
 /**
  * @method sendAuthRequest
@@ -238,6 +239,15 @@ export function shareToFavorite(data) {
       } else {
         reject(new WechatError(resp));
       }
+    });
+  });
+}
+
+export function launchMiniProgram(data) {
+  return new Promise((resolve, reject) => {
+    nativeLaunchMiniProgram(data);
+    emitter.once('WXLaunchMiniProgramReq.Resp', resp => {
+      resolve(resp);
     });
   });
 }
