@@ -59,19 +59,26 @@ RCT_EXPORT_MODULE()
     return YES;
 }
 
+- (NSArray<NSString *> *)supportedEvents
+{
+  return @[RCTWXEventName];
+}
+
 RCT_EXPORT_METHOD(registerApp:(NSString *)appid
+                  :(NSString *)universalLink
                   :(RCTResponseSenderBlock)callback)
 {
     self.appId = appid;
-    callback(@[[WXApi registerApp:appid] ? [NSNull null] : INVOKE_FAILED]);
+    NSLog(@"appID: %@", appid);
+    callback(@[[WXApi registerApp:appid universalLink:universalLink] ? [NSNull null] : INVOKE_FAILED]);
 }
 
-RCT_EXPORT_METHOD(registerAppWithDescription:(NSString *)appid
-                  :(NSString *)appdesc
-                  :(RCTResponseSenderBlock)callback)
-{
-    callback(@[[WXApi registerApp:appid withDescription:appdesc] ? [NSNull null] : INVOKE_FAILED]);
-}
+//RCT_EXPORT_METHOD(registerAppWithDescription:(NSString *)appid
+//                  :(NSString *)appdesc
+//                  :(RCTResponseSenderBlock)callback)
+//{
+//    callback(@[[WXApi registerApp:appid withDescription:appdesc] ? [NSNull null] : INVOKE_FAILED]);
+//}
 
 RCT_EXPORT_METHOD(isWXAppInstalled:(RCTResponseSenderBlock)callback)
 {
@@ -103,7 +110,9 @@ RCT_EXPORT_METHOD(sendRequest:(NSString *)openid
 {
     BaseReq* req = [[BaseReq alloc] init];
     req.openID = openid;
-    callback(@[[WXApi sendReq:req] ? [NSNull null] : INVOKE_FAILED]);
+    [WXApi sendReq:req completion:^(BOOL success) {
+      callback(@[success ? [NSNull null] : INVOKE_FAILED]);
+    }];
 }
 
 RCT_EXPORT_METHOD(sendAuthRequest:(NSString *)scope
@@ -113,15 +122,18 @@ RCT_EXPORT_METHOD(sendAuthRequest:(NSString *)scope
     SendAuthReq* req = [[SendAuthReq alloc] init];
     req.scope = scope;
     req.state = state;
-    BOOL success = [WXApi sendReq:req];
-    callback(@[success ? [NSNull null] : INVOKE_FAILED]);
+    [WXApi sendReq:req completion:^(BOOL success) {
+      callback(@[success ? [NSNull null] : INVOKE_FAILED]);
+    }];
 }
 
 RCT_EXPORT_METHOD(sendSuccessResponse:(RCTResponseSenderBlock)callback)
 {
     BaseResp* resp = [[BaseResp alloc] init];
     resp.errCode = WXSuccess;
-    callback(@[[WXApi sendResp:resp] ? [NSNull null] : INVOKE_FAILED]);
+    [WXApi sendResp:resp completion:^(BOOL success) {
+      callback(@[success ? [NSNull null] : INVOKE_FAILED]);
+    }];
 }
 
 RCT_EXPORT_METHOD(sendErrorCommonResponse:(NSString *)message
@@ -130,7 +142,9 @@ RCT_EXPORT_METHOD(sendErrorCommonResponse:(NSString *)message
     BaseResp* resp = [[BaseResp alloc] init];
     resp.errCode = WXErrCodeCommon;
     resp.errStr = message;
-    callback(@[[WXApi sendResp:resp] ? [NSNull null] : INVOKE_FAILED]);
+    [WXApi sendResp:resp completion:^(BOOL success) {
+      callback(@[success ? [NSNull null] : INVOKE_FAILED]);
+    }];
 }
 
 RCT_EXPORT_METHOD(sendErrorUserCancelResponse:(NSString *)message
@@ -139,7 +153,9 @@ RCT_EXPORT_METHOD(sendErrorUserCancelResponse:(NSString *)message
     BaseResp* resp = [[BaseResp alloc] init];
     resp.errCode = WXErrCodeUserCancel;
     resp.errStr = message;
-    callback(@[[WXApi sendResp:resp] ? [NSNull null] : INVOKE_FAILED]);
+    [WXApi sendResp:resp completion:^(BOOL success) {
+      callback(@[success ? [NSNull null] : INVOKE_FAILED]);
+    }];
 }
 
 RCT_EXPORT_METHOD(shareToTimeline:(NSDictionary *)data
@@ -170,8 +186,9 @@ RCT_EXPORT_METHOD(pay:(NSDictionary *)data
     req.timeStamp           = [data[@"timeStamp"] unsignedIntValue];
     req.package             = data[@"package"];
     req.sign                = data[@"sign"];
-    BOOL success = [WXApi sendReq:req];
-    callback(@[success ? [NSNull null] : INVOKE_FAILED]);
+    [WXApi sendReq:req completion:^(BOOL success) {
+      callback(@[success ? [NSNull null] : INVOKE_FAILED]);
+    }];
 }
 
 - (void)shareToWeixinWithData:(NSDictionary *)aData
@@ -317,8 +334,9 @@ RCT_EXPORT_METHOD(pay:(NSDictionary *)data
     req.scene = aScene;
     req.text = text;
 
-    BOOL success = [WXApi sendReq:req];
+  [WXApi sendReq:req completion:^(BOOL success) {
     callback(@[success ? [NSNull null] : INVOKE_FAILED]);
+  }];
 }
 
 - (void)shareToWeixinWithMediaMessage:(int)aScene
@@ -345,8 +363,9 @@ RCT_EXPORT_METHOD(pay:(NSDictionary *)data
     req.scene = aScene;
     req.message = message;
 
-    BOOL success = [WXApi sendReq:req];
-    callback(@[success ? [NSNull null] : INVOKE_FAILED]);
+    [WXApi sendReq:req completion:^(BOOL success) {
+      callback(@[success ? [NSNull null] : INVOKE_FAILED]);
+    }];
 }
 
 #pragma mark - wx callback
@@ -367,7 +386,7 @@ RCT_EXPORT_METHOD(pay:(NSDictionary *)data
 	    body[@"lang"] = r.lang;
 	    body[@"country"] =r.country;
 	    body[@"type"] = @"SendMessageToWX.Resp";
-	    [self.bridge.eventDispatcher sendDeviceEventWithName:RCTWXEventName body:body];
+      [self sendEventWithName:RCTWXEventName body:body];
 	} else if ([resp isKindOfClass:[SendAuthResp class]]) {
 	    SendAuthResp *r = (SendAuthResp *)resp;
 	    NSMutableDictionary *body = @{@"errCode":@(r.errCode)}.mutableCopy;
@@ -379,13 +398,13 @@ RCT_EXPORT_METHOD(pay:(NSDictionary *)data
     
 	    if (resp.errCode == WXSuccess) {
 	        if (self.appId && r) {
-		    // ios第一次获取不到appid会卡死，加个判断OK		
-		    [body addEntriesFromDictionary:@{@"appid":self.appId, @"code":r.code}];
-		    [self.bridge.eventDispatcher sendDeviceEventWithName:RCTWXEventName body:body];
+            // ios第一次获取不到appid会卡死，加个判断OK
+            [body addEntriesFromDictionary:@{@"appid":self.appId, @"code":r.code}];
+            [self sendEventWithName:RCTWXEventName body:body];
 	        }
 	    }
 	    else {
-	        [self.bridge.eventDispatcher sendDeviceEventWithName:RCTWXEventName body:body];
+          [self sendEventWithName:RCTWXEventName body:body];
 	    }
 	} else if ([resp isKindOfClass:[PayResp class]]) {
 	        PayResp *r = (PayResp *)resp;
@@ -394,7 +413,7 @@ RCT_EXPORT_METHOD(pay:(NSDictionary *)data
 	        body[@"type"] = @(r.type);
 	        body[@"returnKey"] =r.returnKey;
 	        body[@"type"] = @"PayReq.Resp";
-	        [self.bridge.eventDispatcher sendDeviceEventWithName:RCTWXEventName body:body];
+          [self sendEventWithName:RCTWXEventName body:body];
     	}
 }
 
